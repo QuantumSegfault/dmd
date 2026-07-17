@@ -13,12 +13,6 @@
 
 module rt.profilegc;
 
-// On Wasm, it increases codesize noticably.
-// Meanwhile, ldc (ldmd2) does not support `-profile-gc`, so there's no point
-// keeping it around on Wasm targets
-version (WASI) {}
-else:
-
 private:
 
 import core.stdc.errno : errno;
@@ -51,7 +45,7 @@ extern (C) void profilegc_setlogfilename(string name)
     logfilename = name ~ "\0";
 }
 
-public void accumulate(string file, uint line, string funcname, string type, ulong sz) @nogc nothrow
+void accumulateImpl(string file, uint line, string funcname, string type, ulong sz) @nogc nothrow
 {
     if (sz == 0)
         return;
@@ -93,6 +87,24 @@ public void accumulate(string file, uint line, string funcname, string type, ulo
         key[] = buffer[0..length];
         newCounts[key] = Entry(1, sz); // new entry
     }
+}
+
+public ulong accumulate(string file, int line, string funcname, string name, ulong currentlyAllocated) nothrow
+{
+    import core.memory : GC;
+    const size = GC.allocatedInCurrentThread - currentlyAllocated;
+
+    if (size == 0)
+        return 0;
+
+    accumulateImpl(file, line, funcname, name, size);
+    return size;
+}
+
+public ulong accumulatePure(string file, int line, string funcname, string name, ulong currentlyAllocated) nothrow pure
+{
+    auto impureBypass = cast(ulong function(string file, int line, string funcname, string name, ulong currentlyAllocated) nothrow pure)&accumulate;
+    return impureBypass(file, line, funcname, name, currentlyAllocated);
 }
 
 // Merge thread local newCounts into globalNewCounts

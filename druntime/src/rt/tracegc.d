@@ -42,9 +42,8 @@ extern (C) size_t gc_extend(void* p, size_t mx, size_t sz, const TypeInfo ti = n
 
 private void accumulate2(string file, int line, string funcname, string name, ulong currentlyAllocated)
 {
-    auto size = GC.allocatedInCurrentThread - currentlyAllocated;
-    if (size > 0 && strstr(funcname.ptr, "core.internal") is null)
-        accumulate(file, line, funcname, name, size);
+    if (strstr(funcname.ptr, "core.internal") is null)
+        accumulate(file, line, funcname, name, currentlyAllocated);
 }
 
 import rt.profilegc : accumulate;
